@@ -516,3 +516,61 @@ components:
                   - kind: ReplaceDialog
                     id: replaceDialog_fallback
                     dialog: contoso.topic.Fallback
+
+  # ── Product Inquiry ─────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: true
+
+    displayName: Product Inquiry
+    description: Handles product questions, pricing, availability, and recommendations.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.ProductInquiry
+    dialog:
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Product Inquiry
+          includeInOnSelectIntent: true
+          triggerQueries:
+            - What products do you have?
+            - Show me your catalog
+            - How much is the Surface Laptop?
+            - Is the Xbox in stock?
+            - Do you have any laptops?
+            - What accessories do you sell?
+            - Product availability
+            - Price of Surface Pro
+            - What gaming products do you have?
+            - Recommend a laptop
+            - Compare products
+            - Looking for headphones
+            - What's the best tablet?
+            - Do you sell keyboards?
+            - Surface Pen price
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_productBadge
+            activity:
+              channelData:
+                activeAgent: consumer
+
+          - kind: SendActivity
+            id: sendMessage_productAck
+            activity:
+              text:
+                - "🛍️ **Product Advisor** connected.\n\nLet me check our latest catalog for you!"
+
+          - kind: SendActivity
+            id: sendMessage_productList
+            activity:
+              text:
+                - "Here are our product categories:\n\n💻 **Laptops** — Surface Laptop 5 ($1,299.99)\n📱 **Tablets** — Surface Pro 10 ($1,599.99)\n🎮 **Gaming** — Xbox Series X ($499.99), Xbox Controller ($59.99), Game Pass ($44.99)\n🎧 **Audio** — Surface Headphones 3 ($249.99), Surface Earbuds ($199.99)\n📀 **Software** — Microsoft 365 Family ($99.99)\n🖱️ **Accessories** — Arc Mouse ($79.99), Surface Keyboard ($99.99), Surface Dock 2 ($259.99), Surface Pen ($129.99)\n\nWould you like details about a specific product? You can also browse at https://contoso-ecommerce-app.azurewebsites.net"
+
+          - kind: BeginDialog
+            id: beginDialog_endConvoProduct
+            dialog: contoso.topic.EndofConversation
