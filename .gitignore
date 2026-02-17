@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Deployment artifacts
+deploy.zip
+
+# Environment files
+.env
+.env.local

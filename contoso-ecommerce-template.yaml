@@ -1,0 +1,518 @@
+kind: BotDefinition
+entity:
+  accessControlPolicy: ChatbotReaders
+  authenticationMode: Unspecified
+  authenticationTrigger: AsNeeded
+  configuration:
+    settings:
+      GenerativeActionsEnabled: true
+
+  template: contosoEcommerceTemplate-1.0.0
+
+components:
+  # ── Conversation Start ─────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Conversation Start
+    description: Greets the user and introduces the Contoso E-Commerce Assistant.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.ConversationStart
+    dialog:
+      beginDialog:
+        kind: OnConversationStart
+        id: main
+        actions:
+          - kind: SendActivity
+            id: sendMessage_welcome
+            activity:
+              text:
+                - "Hello! 👋 I'm the **Contoso E-Commerce Assistant**. I can help you with:\n\n🛟 **Support** — Refunds, complaints, discount codes\n📦 **Operations** — Shipping status, inventory, replacements\n\nHow can I assist you today?"
+              channelData:
+                activeAgent: router
+
+  # ── Greeting ────────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Greeting
+    description: This topic triggers when the user greets the agent.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.Greeting
+    dialog:
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Greeting
+          includeInOnSelectIntent: false
+          triggerQueries:
+            - Good afternoon
+            - Good morning
+            - Hello
+            - Hey
+            - Hi
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_greet
+            activity:
+              text:
+                - "Hello! 👋 I'm the Contoso E-Commerce Assistant. How can I help you today?\n\n🛟 **Support** — Refunds, complaints, discount codes\n📦 **Operations** — Shipping status, inventory, replacements"
+              channelData:
+                activeAgent: router
+
+          - kind: CancelAllDialogs
+            id: cancelAllDialogs_greet
+
+  # ── Support Agent Topic ─────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: true
+
+    displayName: Support Agent
+    description: Handles refunds, complaints, and angry customers. Offers a 20% discount code before ending the chat.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.SupportAgent
+    dialog:
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Support Agent
+          includeInOnSelectIntent: true
+          triggerQueries:
+            - I want a refund
+            - I'm angry about my order
+            - This is terrible service
+            - I need a discount
+            - I want to complain
+            - Worst experience ever
+            - I'm frustrated
+            - Cancel my order
+            - I'm unhappy with my purchase
+            - This product is defective
+            - I demand a refund
+            - Your service is awful
+            - I need to speak to someone about a refund
+            - Very disappointed
+            - Bad experience
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_supportBadge
+            activity:
+              channelData:
+                activeAgent: support
+
+          - kind: SendActivity
+            id: sendMessage_supportAck
+            activity:
+              text:
+                - "🛟 **Support Agent** connected.\n\nI'm sorry to hear you're having trouble. I'd like to help make this right."
+
+          - kind: Question
+            id: question_orderId
+            alwaysPrompt: true
+            variable: init:Topic.OrderId
+            prompt: "Could you please provide your **order ID**? (e.g., ORD-1001)"
+            entity: StringPrebuiltEntity
+
+          - kind: SendActivity
+            id: sendMessage_lookingUp
+            activity:
+              text:
+                - "Looking up order **{Topic.OrderId}**..."
+
+          - kind: SendActivity
+            id: sendMessage_discount
+            activity:
+              text:
+                - "I sincerely apologize for the inconvenience with your order.\n\nAs a gesture of goodwill, I've generated a **20% discount code** for your next purchase:\n\n🎟️ **CONTOSO20-{System.Conversation.Id}**\n\nPlease use this code at checkout. Is there anything else I can help with?"
+              channelData:
+                activeAgent: support
+                toolAction: applyDiscount
+                orderId: "{Topic.OrderId}"
+                discountPercentage: 20
+
+          - kind: BeginDialog
+            id: beginDialog_endConvo
+            dialog: contoso.topic.EndofConversation
+
+  # ── Ops Agent Topic ─────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: true
+
+    displayName: Ops Agent
+    description: Handles shipping, inventory, and replacement orders. Checks stock before triggering replacements.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.OpsAgent
+    dialog:
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Ops Agent
+          includeInOnSelectIntent: true
+          triggerQueries:
+            - Where is my order?
+            - Shipping status
+            - When will my order arrive?
+            - I need a replacement
+            - My order is lost
+            - My order is damaged
+            - Check stock
+            - Inventory check
+            - Track my package
+            - Delivery update
+            - My package hasn't arrived
+            - Wrong item received
+            - Order status
+            - Shipping update
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_opsBadge
+            activity:
+              channelData:
+                activeAgent: ops
+
+          - kind: SendActivity
+            id: sendMessage_opsAck
+            activity:
+              text:
+                - "📦 **Ops Agent** connected.\n\nI'd be happy to help with your order."
+
+          - kind: Question
+            id: question_opsOrderId
+            alwaysPrompt: true
+            variable: init:Topic.OrderId
+            prompt: "What is your **order ID**? (e.g., ORD-1001)"
+            entity: StringPrebuiltEntity
+
+          - kind: SendActivity
+            id: sendMessage_checkingOrder
+            activity:
+              text:
+                - "Checking order **{Topic.OrderId}** and verifying inventory..."
+              channelData:
+                activeAgent: ops
+                toolAction: checkStock
+                orderId: "{Topic.OrderId}"
+
+          - kind: Question
+            id: question_needReplacement
+            alwaysPrompt: true
+            variable: init:Topic.NeedReplacement
+            prompt: "Would you like me to **initiate a replacement order**?"
+            entity: BooleanPrebuiltEntity
+
+          - kind: ConditionGroup
+            id: conditionGroup_replacement
+            conditions:
+              - id: conditionItem_yes
+                condition: =Topic.NeedReplacement = true
+                actions:
+                  - kind: SendActivity
+                    id: sendMessage_replacementTriggered
+                    activity:
+                      text:
+                        - "✅ A replacement order has been initiated for **{Topic.OrderId}**.\n\nYour new tracking number is: **TRK-RPL-{System.Conversation.Id}**\n\nYou'll receive tracking details via email shortly."
+                      channelData:
+                        activeAgent: ops
+                        toolAction: triggerReplacement
+                        orderId: "{Topic.OrderId}"
+
+            elseActions:
+              - kind: SendActivity
+                id: sendMessage_noReplacement
+                activity:
+                  text:
+                    - "No problem! Your order **{Topic.OrderId}** is being tracked. You should receive updates via email.\n\nIs there anything else I can help with?"
+                  channelData:
+                    activeAgent: ops
+
+          - kind: BeginDialog
+            id: beginDialog_endConvoOps
+            dialog: contoso.topic.EndofConversation
+
+  # ── Fallback ────────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Fallback
+    description: This system topic triggers when the user's utterance does not match any existing topics.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.Fallback
+    dialog:
+      beginDialog:
+        kind: OnUnknownIntent
+        id: main
+        actions:
+          - kind: ConditionGroup
+            id: conditionGroup_fallback
+            conditions:
+              - id: conditionItem_retry
+                condition: =System.FallbackCount < 3
+                actions:
+                  - kind: SendActivity
+                    id: sendMessage_retry
+                    activity:
+                      text:
+                        - "I'm not sure I understood that. I can help you with:\n\n🛟 **Support** — Say things like \"I want a refund\" or \"I'm frustrated\"\n📦 **Operations** — Say things like \"Where is my order?\" or \"I need a replacement\"\n\nCould you try rephrasing?"
+                      channelData:
+                        activeAgent: router
+
+          elseActions:
+            - kind: BeginDialog
+              id: fallbackEscalate
+              dialog: contoso.topic.Escalate
+
+  # ── End of Conversation ─────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: End of Conversation
+    description: Guides the user through ending the conversation with a satisfaction survey.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.EndofConversation
+    dialog:
+      startBehavior: CancelOtherTopics
+      beginDialog:
+        kind: OnSystemRedirect
+        id: main
+        actions:
+          - kind: Question
+            id: question_resolved
+            conversationOutcome: ResolvedImplied
+            alwaysPrompt: true
+            variable: init:Topic.SurveyResponse
+            prompt: Did that answer your question?
+            entity: BooleanPrebuiltEntity
+
+          - kind: ConditionGroup
+            id: condition_survey
+            conditions:
+              - id: condition_yes
+                condition: =Topic.SurveyResponse = true
+                actions:
+                  - kind: SendActivity
+                    id: sendMessage_thanks
+                    activity: "Great! Thank you for choosing Contoso. Have a wonderful day! 😊"
+
+                  - kind: EndConversation
+                    id: endConvo_resolved
+
+            elseActions:
+              - kind: Question
+                id: question_tryAgain
+                alwaysPrompt: true
+                variable: init:Topic.TryAgain
+                prompt: "Sorry I wasn't able to help better. Would you like to try again?"
+                entity: BooleanPrebuiltEntity
+
+              - kind: ConditionGroup
+                id: condition_tryAgain
+                conditions:
+                  - id: condition_tryAgainNo
+                    condition: =Topic.TryAgain = false
+                    actions:
+                      - kind: BeginDialog
+                        id: escalate_from_end
+                        dialog: contoso.topic.Escalate
+
+                elseActions:
+                  - kind: SendActivity
+                    id: sendMessage_goAhead
+                    activity: "Sure! Go ahead, I'm listening."
+
+  # ── Escalate ────────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Escalate
+    description: Triggered when the user wants to speak to a representative.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.Escalate
+    dialog:
+      startBehavior: CancelOtherTopics
+      beginDialog:
+        kind: OnEscalate
+        id: main
+        intent:
+          displayName: Escalate
+          includeInOnSelectIntent: false
+          triggerQueries:
+            - Talk to agent
+            - Talk to a person
+            - Talk to someone
+            - Connect me to a live agent
+            - I need help from a person
+            - Customer service
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_escalate
+            conversationOutcome: Escalated
+            activity: "I understand you'd like to speak with a human representative. Please contact our Contoso support team:\n\n📧 support@contoso.com\n📞 1-800-CONTOSO\n\nIs there anything else I can help you with?"
+
+  # ── Thank You ───────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Thank you
+    description: This topic triggers when the user says thank you.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.Thankyou
+    dialog:
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Thank you
+          includeInOnSelectIntent: false
+          triggerQueries:
+            - thanks
+            - thank you
+            - thanks so much
+            - ty
+            - appreciate it
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_thankyou
+            activity: "You're welcome! 😊 Is there anything else I can help with?"
+
+  # ── Goodbye ─────────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Goodbye
+    description: This topic triggers when the user says goodbye.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.Goodbye
+    dialog:
+      startBehavior: CancelOtherTopics
+      beginDialog:
+        kind: OnRecognizedIntent
+        id: main
+        intent:
+          displayName: Goodbye
+          includeInOnSelectIntent: false
+          triggerQueries:
+            - Bye
+            - Goodbye
+            - See you later
+            - Bye for now
+
+        actions:
+          - kind: SendActivity
+            id: sendMessage_bye
+            activity: "Goodbye! Thank you for choosing Contoso. 👋"
+
+          - kind: EndConversation
+            id: endConvo_bye
+
+  # ── On Error ────────────────────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: On Error
+    description: This system topic triggers when the agent encounters an error.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.OnError
+    dialog:
+      startBehavior: UseLatestPublishedContentAndCancelOtherTopics
+      beginDialog:
+        kind: OnError
+        id: main
+        actions:
+          - kind: SendActivity
+            id: sendMessage_error
+            activity: "An error has occurred. Error code: {System.Error.Code}. Please try again or contact support@contoso.com."
+
+          - kind: CancelAllDialogs
+            id: cancelAll_error
+
+  # ── Multiple Topics Matched ─────────────────────────────
+  - kind: DialogComponent
+    managedProperties:
+      isCustomizable: false
+
+    displayName: Multiple Topics Matched
+    description: Triggered when the agent matches multiple topics and needs clarification.
+    shareContext: {}
+    state: Active
+    status: Active
+    schemaName: contoso.topic.MultipleTopicsMatched
+    dialog:
+      beginDialog:
+        kind: OnSelectIntent
+        id: main
+        triggerBehavior: Always
+        actions:
+          - kind: SetVariable
+            id: setVariable_intentOpts
+            variable: init:Topic.IntentOptions
+            value: =System.Recognizer.IntentOptions
+
+          - kind: SetTextVariable
+            id: setTextVariable_none
+            variable: Topic.NoneOfTheseDisplayName
+            value: None of these
+
+          - kind: EditTable
+            id: editTable_addNone
+            changeType: Add
+            itemsVariable: Topic.IntentOptions
+            value: "={ DisplayName: Topic.NoneOfTheseDisplayName, TopicId: \"NoTopic\", TriggerId: \"NoTrigger\", Score: 1.0 }"
+
+          - kind: Question
+            id: question_clarify
+            interruptionPolicy:
+              allowInterruption: false
+            alwaysPrompt: true
+            variable: System.Recognizer.SelectedIntent
+            prompt: "To clarify, did you mean:"
+            entity:
+              kind: DynamicClosedListEntity
+              items: =Topic.IntentOptions
+
+          - kind: ConditionGroup
+            id: conditionGroup_noTopic
+            conditions:
+              - id: conditionItem_noTopic
+                condition: =System.Recognizer.SelectedIntent.TopicId = "NoTopic"
+                actions:
+                  - kind: ReplaceDialog
+                    id: replaceDialog_fallback
+                    dialog: contoso.topic.Fallback
