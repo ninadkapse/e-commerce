@@ -5,6 +5,8 @@ import { useStore } from "@/lib/store";
 import { ChatMessage, AgentType, Order } from "@/lib/types";
 import AgentBadge from "./AgentBadge";
 
+const COPILOT_WEBCHAT_URL = `https://copilotstudio.microsoft.com/environments/${process.env.NEXT_PUBLIC_COPILOT_ENV_ID || "b9c87ff9-d3b1-4655-9576-a83bd2fb4745"}/bots/${process.env.NEXT_PUBLIC_COPILOT_BOT_ID || "2e0fe539-000f-48dc-b346-24cd6d6e8de4"}/webchat?__version__=2`;
+
 // Detect intent from user message
 function detectIntent(text: string): "consumer" | "ops" | null {
   const lower = text.toLowerCase();
@@ -37,6 +39,7 @@ export default function ChatSidebar() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [useCopilotStudio, setUseCopilotStudio] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -275,8 +278,21 @@ export default function ChatSidebar() {
         <div className="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold text-white">Contoso Assistant</h3>
-            <div className="mt-1">
-              <AgentBadge agent={activeAgent} />
+            <div className="mt-1 flex items-center gap-2">
+              {useCopilotStudio ? (
+                <span className="inline-flex items-center rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  🤖 Copilot Studio
+                </span>
+              ) : (
+                <AgentBadge agent={activeAgent} />
+              )}
+              <button
+                onClick={() => setUseCopilotStudio(!useCopilotStudio)}
+                className="text-[10px] text-white/60 hover:text-white underline"
+                title={useCopilotStudio ? "Switch to local agent" : "Switch to Copilot Studio"}
+              >
+                {useCopilotStudio ? "Local" : "AI Studio"}
+              </button>
             </div>
           </div>
           <button
@@ -289,8 +305,19 @@ export default function ChatSidebar() {
           </button>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+        {/* Chat Content */}
+        {useCopilotStudio ? (
+          /* Copilot Studio Webchat Iframe */
+          <iframe
+            src={COPILOT_WEBCHAT_URL}
+            className="flex-1 border-none"
+            title="Contoso E-Commerce Assistant"
+            allow="microphone"
+          />
+        ) : (
+          <>
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {messages.length === 0 && (
             <div className="flex h-full items-center justify-center text-center">
               <div>
@@ -361,6 +388,8 @@ export default function ChatSidebar() {
             </svg>
           </button>
         </form>
+          </>
+        )}
       </div>
     </>
   );
